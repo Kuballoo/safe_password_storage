@@ -28,7 +28,7 @@ def generate_salt():
 
 def generate_key(password: bytes, salt):
    """Generate a secure key from the password and salt."""
-   return PBKDF2(password, salt, dkLen=32, count=2000_000, hmac_hash_module=SHA256)
+   return PBKDF2(password, salt, dkLen=32, count=200_000, hmac_hash_module=SHA256)
 
 def encrypt_data(data: bytes, salt: bytes, key_password: bytes):
    """Generate a secure data."""
@@ -105,13 +105,12 @@ def add_password(decrypted_data):
 
 def delete_password(decrypted_data):
    """Deletes a password from the storage."""
-   clear_screen()
-   print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- DELETE PASSWORD ---")
    while True:
       clear_screen()
       print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- CURRENT PASSWORDS ---")
       for name, password in decrypted_data["encrypted_data"]["ciphertext"].items():
          print(Fore.CYAN + f"{name}: {password}")
+      print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- DELETE PASSWORD ---")
       name = input(Fore.GREEN + "Enter the name of the password to delete: ")
       if name == "main_password":
          print(Fore.RED + "Cannot delete the main password. Please choose a different name.")
@@ -133,13 +132,12 @@ def delete_password(decrypted_data):
 
 def edit_password(decrypted_data):
    """Edits an existing password in the storage."""
-   clear_screen()
-   print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- EDIT PASSWORD ---")
    while True:
       clear_screen()
       print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- CURRENT PASSWORDS ---")
       for name, password in decrypted_data["encrypted_data"]["ciphertext"].items():
          print(Fore.CYAN + f"{name}: {password}")
+      print(Fore.RED + Style.BRIGHT + Back.BLUE + "\n--- EDIT PASSWORD ---")
       name = input(Fore.GREEN + "Enter the name of the password to edit (leave empty to exit): ")
       if name == "main_password":
          print(Fore.RED + "Cannot edit the main password. Please choose a different name.")
@@ -198,8 +196,14 @@ def open_storage():
    
    # Attempt to read and decrypt the storage file
    try:
-      with open(storage_name, 'r') as f:
-         storage_data = json.load(f)
+      try:
+         with open(storage_name, 'r') as f:
+            storage_data = json.load(f)
+      except json.JSONDecodeError:
+         print(Fore.RED + "Corrupted or invalid storage file (invalid JSON format).", end="")
+         loading_animation(Fore.RED)
+         return
+
       salt = bytes.fromhex(storage_data["info"]["salt"])
       encrypted_data = storage_data["encrypted_data"]
       decrypted_data = decrypt_data(encrypted_data, salt, storage_password.encode('utf-8'))
@@ -339,23 +343,32 @@ def opened_storage(decrypted_data):
 
 def main():
    colorama_init(autoreset=True)
-   while True:
-      option = menu("start")
-      clear_screen()
-      if option == "1":
-         decrypted_data = generate_storage()
-         if decrypted_data == None:
+   try:
+      while True:
+         option = menu("start")
+         clear_screen()
+         if option == "1":
+            decrypted_data = generate_storage()
+            if decrypted_data == None:
+               continue
+            opened_storage(decrypted_data)
+         elif option == "2":
+            decrypted_data = open_storage()
+            if decrypted_data == None:
+               continue
+            opened_storage(decrypted_data)
+         elif option == "3":
+            print(Fore.GREEN + "Exiting the program. Goodbye!")
+            return
+         else:
+            print(Fore.RED + "Invalid option. Please try again.")
             continue
-         opened_storage(decrypted_data)
-      elif option == "2":
-         decrypted_data = open_storage()
-         opened_storage(decrypted_data)
-      elif option == "3":
-         print(Fore.GREEN + "Exiting the program. Goodbye!")
-         return
-      else:
-         print(Fore.RED + "Invalid option. Please try again.")
-         continue
+   except KeyboardInterrupt:
+      print(Fore.RED + "\nProgram interrupted. Exiting...")
+      return
+   except Exception as e:
+      print(Fore.RED + f"An error occurred: {e}")
+      return
 
 
 if __name__ == "__main__":
