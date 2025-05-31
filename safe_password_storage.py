@@ -7,6 +7,14 @@ import json
 from colorama import Fore, Style, Back, init as colorama_init
 import os
 import getpass
+import time
+
+def loading_animation():
+   """Display a loading animation."""
+   for _ in range(3):
+      time.sleep(0.6)
+      print(Fore.YELLOW + '.', end='')
+   time.sleep(1)
 
 def clear_screen():
    """Clear the console screen."""
@@ -54,26 +62,51 @@ def menu(type=None):
       return input(Fore.GREEN)
    elif type == "generate":
       print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- GENERATE STORAGE ---")
+      print(Fore.CYAN + "1. Add password")
+      print(Fore.CYAN + "2. View passwords")
+      print(Fore.CYAN + "3. Back to main menu")
+      print(Fore.GREEN + "Choose an option (1-3): ", end="")
+      return input(Fore.GREEN)
    elif type == "open":
       print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- OPEN STORAGE ---")
+      print(Fore.CYAN + "1. Add password")
+      print(Fore.CYAN + "2. View passwords")
+      print(Fore.CYAN + "3. Back to main menu")
+      print(Fore.GREEN + "Choose an option (1-3): ", end="")
+      return input(Fore.GREEN)
+
+
+
 
 # REBUILDING THE FUNCTION TO ADD PASSWORDS
-def add_password(storage):
+def add_password(decrypted_data):
    """Adds a new password to the storage."""
    menu("add")
-   name = input(Fore.GREEN + "Enter the name of the password: ")
-   password = getpass.getpass(Fore.GREEN + "Enter the password: ")
-   re_enter_password = getpass.getpass(Fore.GREEN + "Re-enter the password: ")
-   if password != re_enter_password:
-      print(Fore.RED + "Passwords do not match. Please try again.")
-      return
-   if not password:
-      print(Fore.RED + "Password cannot be empty.")
-      return
+   print(decrypted_data)
+   while True:
+      name = input(Fore.GREEN + "Enter the name of the password: ")
+      password = getpass.getpass(Fore.GREEN + "Enter the password: ")
+      re_enter_password = getpass.getpass(Fore.GREEN + "Re-enter the password: ")
+      if password != re_enter_password:
+         print(Fore.RED + "Passwords do not match. Please try again.")
+         continue
+      if not password:
+         print(Fore.RED + "Password cannot be empty.")
+         continue
+         
+      if name in decrypted_data["passwords"]:
+         print(Fore.RED + "Password with this name already exists. Please choose a different name.")
+         continue
 
+      decrypted_data["passwords"][name] = password
+      print(Fore.GREEN + f"Password for '{name}' added successfully.")
+      want_another = input(Fore.GREEN + "Do you want to add another password? (y/n): ").strip().lower()
+      if want_another != 'y':
+         return decrypted_data
+   
 def open_storage():
    """Opens an existing storage file for passwords."""
-   menu("open")
+   print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- OPEN STORAGE ---")
    storage_name = input(Fore.GREEN + "Enter storage name: ")
    if not storage_name:
       print(Fore.RED + "Storage name cannot be empty.")
@@ -97,58 +130,111 @@ def open_storage():
       if main_password["main_password"] != storage_password:
          print(Fore.RED + "Incorrect password. Please try again.")
          return
-      
-      
    except Exception as e:
       print(Fore.RED + f"Error reading storage file: {e}")
       return
+   print(Fore.GREEN + f"Storage '{storage_name}' opened successfully")
+   print(Fore.YELLOW + "You can now add or view passwords", end="")
+   loading_animation()
 
 def generate_storage():
    """Generates a secure storage file for passwords."""
-   menu("generate")
+   print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- GENERATE STORAGE ---")
    storage_name = input(Fore.GREEN + "Enter storage name: ")
    if not storage_name:
-      print(Fore.RED + "Storage name cannot be empty.")
+      print(Fore.RED + "Storage name cannot be empty", end="")
+      loading_animation()
       return
    storage_name += ".json"
    if os.path.exists(storage_name):
-      print(Fore.RED + "Storage already exists. Please choose a different name.")
+      print(Fore.RED + "Storage already exists. Please choose a different name", end="")
+      loading_animation()
       return
    
    key_password = getpass.getpass(Fore.GREEN + "Enter a password for the storage: ")
    re_enter_password = getpass.getpass(Fore.GREEN + "Re-enter the password: ")
    if key_password != re_enter_password:
-      print(Fore.RED + "Passwords do not match. Please try again.")
+      print(Fore.RED + "Passwords do not match. Please try again", end="")
+      loading_animation()
       return
    if not key_password:
-      print(Fore.RED + "Password cannot be empty.")
+      print(Fore.RED + "Password cannot be empty", end="")
+      loading_animation()
       return
    
    salt = generate_salt()
    main_password = {
       "main_password": key_password
    }
-   main_password = json.dumps(main_password).encode('utf-8')
-   data = encrypt_data(main_password, salt, key_password.encode('utf-8'))
+   main_password_encoded = json.dumps(main_password).encode('utf-8')
+   data = encrypt_data(main_password_encoded, salt, key_password.encode('utf-8'))
    new_storage = {
       "info": {
          "storage_name": storage_name,
          "version": "1.0",
          "salt": salt.hex(),
       },
-      "encrypted_data": data
+      "passwords": data
    }
-
+   decrypted_storage = {
+      "info": {
+         "storage_name": storage_name,
+         "version": "1.0",
+         "salt": salt.hex(),
+      },
+      "passwords": main_password
+   }
    with open(storage_name, 'w') as f:
       json.dump(new_storage, f, indent=4)
    print(Fore.GREEN + f"Storage '{storage_name}' created successfully.")
-   print(Fore.YELLOW + "You can now add passwords to this storage.")
+   print(Fore.YELLOW + "You can now add passwords to this storage", end="")
+   loading_animation()
+   return decrypted_storage
+
+def close_storage(decrypted_data):
+   """Closes the storage and saves the passwords."""
+   print(Fore.GREEN + "Closing storage...", end="")
+   with open(decrypted_data["info"]["storage_name"], 'w') as f:
+      encrypted_data = encrypt_data(json.dumps(decrypted_data["passwords"]).encode('utf-8'), 
+                                     bytes.fromhex(decrypted_data["info"]["salt"]), 
+                                     decrypted_data["passwords"]["main_password"].encode('utf-8'))
+      storage_data = {
+         "info": decrypted_data["info"],
+         "encrypted_data": encrypted_data
+      }
+      json.dump(storage_data, f, indent=4)
+   print(Fore.GREEN + "Storage closed successfully.")
+   print(Fore.YELLOW + "You can now exit the program or create a new storage", end="")
+   loading_animation()
+   clear_screen()
 
 def main():
    colorama_init(autoreset=True)
-   menu("start")
-   #generate_storage()
-   open_storage()
+   while True:
+      option = menu("start")
+      clear_screen()
+      if option == "1":
+         decrypted_data = generate_storage()
+         while True:
+            option = menu("generate")
+            if option == "1":
+               decrypted_data = add_password(decrypted_data)
+            elif option == "2":
+               print(Fore.YELLOW + "Viewing passwords is not implemented yet.")
+            elif option == "3":
+               close_storage(decrypted_data)
+               break
+            else:
+               print(Fore.RED + "Invalid option. Please try again.")
+               continue
+      elif option == "2":
+         open_storage()
+      elif option == "3":
+         print(Fore.GREEN + "Exiting the program. Goodbye!")
+         return
+      else:
+         print(Fore.RED + "Invalid option. Please try again.")
+         continue
 
 
 if __name__ == "__main__":
