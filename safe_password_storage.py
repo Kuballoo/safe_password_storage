@@ -108,6 +108,10 @@ def delete_password(decrypted_data):
    clear_screen()
    print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- DELETE PASSWORD ---")
    while True:
+      clear_screen()
+      print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- CURRENT PASSWORDS ---")
+      for name, password in decrypted_data["encrypted_data"]["ciphertext"].items():
+         print(Fore.CYAN + f"{name}: {password}")
       name = input(Fore.GREEN + "Enter the name of the password to delete: ")
       if name == "main_password":
          print(Fore.RED + "Cannot delete the main password. Please choose a different name.")
@@ -132,6 +136,10 @@ def edit_password(decrypted_data):
    clear_screen()
    print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- EDIT PASSWORD ---")
    while True:
+      clear_screen()
+      print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- CURRENT PASSWORDS ---")
+      for name, password in decrypted_data["encrypted_data"]["ciphertext"].items():
+         print(Fore.CYAN + f"{name}: {password}")
       name = input(Fore.GREEN + "Enter the name of the password to edit (leave empty to exit): ")
       if name == "main_password":
          print(Fore.RED + "Cannot edit the main password. Please choose a different name.")
@@ -221,62 +229,64 @@ def open_storage():
 
 def generate_storage():
    """Generates a secure storage file for passwords."""
-   print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- GENERATE STORAGE ---")
-   storage_name = input(Fore.GREEN + "Enter storage name: ")
-   if not storage_name:
-      print(Fore.RED + "Storage name cannot be empty", end="")
+   while True:
+      clear_screen()
+      print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- GENERATE STORAGE ---")
+      storage_name = input(Fore.GREEN + "Enter storage name (leave empty to exit): ")
+      if not storage_name:
+         print(Fore.YELLOW + "Exiting", end="")
+         loading_animation()
+         return None
+      storage_name += ".json"
+      if os.path.exists(storage_name):
+         print(Fore.RED + "Storage already exists. Please choose a different name", end="")
+         loading_animation(Fore.RED)
+         return None
+      
+      key_password = getpass.getpass(Fore.GREEN + "Enter a password for the storage: ")
+      re_enter_password = getpass.getpass(Fore.GREEN + "Re-enter the password: ")
+      if key_password != re_enter_password:
+         print(Fore.RED + "Passwords do not match. Please try again", end="")
+         loading_animation()
+         return None
+      if not key_password:
+         print(Fore.RED + "Password cannot be empty", end="")
+         loading_animation(Fore.RED)
+         return None
+      
+      salt = generate_salt()
+      main_password = {
+         "main_password": key_password
+      }
+      main_password_encoded = json.dumps(main_password).encode('utf-8')
+      data = encrypt_data(main_password_encoded, salt, key_password.encode('utf-8'))
+      decrypted_data = {
+         "nonce": data["nonce"],
+         "tag": data["tag"],
+         "ciphertext": main_password
+      }
+      new_storage = {
+         "info": {
+            "storage_name": storage_name,
+            "version": "1.0",
+            "salt": salt.hex(),
+         },
+         "encrypted_data": data
+      }
+      decrypted_storage = {
+         "info": {
+            "storage_name": storage_name,
+            "version": "1.0",
+            "salt": salt.hex(),
+         },
+         "encrypted_data": decrypted_data
+      }
+      with open(storage_name, 'w') as f:
+         json.dump(new_storage, f, indent=4)
+      print(Fore.GREEN + f"Storage '{storage_name}' created successfully.")
+      print(Fore.YELLOW + "You can now add passwords to this storage", end="")
       loading_animation()
-      return
-   storage_name += ".json"
-   if os.path.exists(storage_name):
-      print(Fore.RED + "Storage already exists. Please choose a different name", end="")
-      loading_animation()
-      return
-   
-   key_password = getpass.getpass(Fore.GREEN + "Enter a password for the storage: ")
-   re_enter_password = getpass.getpass(Fore.GREEN + "Re-enter the password: ")
-   if key_password != re_enter_password:
-      print(Fore.RED + "Passwords do not match. Please try again", end="")
-      loading_animation()
-      return
-   if not key_password:
-      print(Fore.RED + "Password cannot be empty", end="")
-      loading_animation()
-      return
-   
-   salt = generate_salt()
-   main_password = {
-      "main_password": key_password
-   }
-   main_password_encoded = json.dumps(main_password).encode('utf-8')
-   data = encrypt_data(main_password_encoded, salt, key_password.encode('utf-8'))
-   decrypted_data = {
-      "nonce": data["nonce"],
-      "tag": data["tag"],
-      "ciphertext": main_password
-   }
-   new_storage = {
-      "info": {
-         "storage_name": storage_name,
-         "version": "1.0",
-         "salt": salt.hex(),
-      },
-      "encrypted_data": data
-   }
-   decrypted_storage = {
-      "info": {
-         "storage_name": storage_name,
-         "version": "1.0",
-         "salt": salt.hex(),
-      },
-      "encrypted_data": decrypted_data
-   }
-   with open(storage_name, 'w') as f:
-      json.dump(new_storage, f, indent=4)
-   print(Fore.GREEN + f"Storage '{storage_name}' created successfully.")
-   print(Fore.YELLOW + "You can now add passwords to this storage", end="")
-   loading_animation()
-   return decrypted_storage
+      return decrypted_storage
 
 def close_storage(decrypted_data):
    """Closes the storage and saves the passwords."""
@@ -334,6 +344,8 @@ def main():
       clear_screen()
       if option == "1":
          decrypted_data = generate_storage()
+         if decrypted_data == None:
+            continue
          opened_storage(decrypted_data)
       elif option == "2":
          decrypted_data = open_storage()
