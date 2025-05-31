@@ -15,6 +15,7 @@ def loading_animation(color=Fore.YELLOW):
    for _ in range(3):
       time.sleep(0.6)
       print(color + '.', end='')
+   print("")
    time.sleep(1)
 
 def clear_screen():
@@ -61,19 +62,14 @@ def menu(option=None):
       print(Fore.CYAN + "3. Exit")
       print(Fore.GREEN + "Choose an option (1-3): ", end="")
       return input(Fore.GREEN)
-   elif option == "generate":
-      print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- GENERATE STORAGE ---")
-      print(Fore.CYAN + "1. Add password")
-      print(Fore.CYAN + "2. View passwords")
-      print(Fore.CYAN + "3. Back to main menu")
-      print(Fore.GREEN + "Choose an option (1-3): ", end="")
-      return input(Fore.GREEN)
    elif option == "open":
-      print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- OPEN STORAGE ---")
+      print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- OPENED STORAGE ---")
       print(Fore.CYAN + "1. Add password")
-      print(Fore.CYAN + "2. View passwords")
-      print(Fore.CYAN + "3. Back to main menu")
-      print(Fore.GREEN + "Choose an option (1-3): ", end="")
+      print(Fore.CYAN + "2. Delete password")
+      print(Fore.CYAN + "3. Edit password")
+      print(Fore.CYAN + "4. View passwords")
+      print(Fore.CYAN + "5. Back to main menu")
+      print(Fore.GREEN + "Choose an option (1-5): ", end="")
       return input(Fore.GREEN)
    elif option == "add":
       print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- ADD PASSWORD ---")
@@ -85,6 +81,9 @@ def add_password(decrypted_data):
    menu("add")
    while True:
       name = input(Fore.GREEN + "Enter the name of the password: ")
+      if not name:
+         print(Fore.RED + "Name cannot be empty. Please try again.")
+         continue
       password = getpass.getpass(Fore.GREEN + "Enter the password: ")
       re_enter_password = getpass.getpass(Fore.GREEN + "Re-enter the password: ")
       if password != re_enter_password:
@@ -103,7 +102,71 @@ def add_password(decrypted_data):
       want_another = input(Fore.GREEN + "Do you want to add another password? (y/n): ").strip().lower()
       if want_another != 'y':
          return decrypted_data
-   
+
+def delete_password(decrypted_data):
+   """Deletes a password from the storage."""
+   clear_screen()
+   print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- DELETE PASSWORD ---")
+   while True:
+      name = input(Fore.GREEN + "Enter the name of the password to delete: ")
+      if name == "main_password":
+         print(Fore.RED + "Cannot delete the main password. Please choose a different name.")
+         continue
+      elif name in decrypted_data["encrypted_data"]["ciphertext"]:
+         del decrypted_data["encrypted_data"]["ciphertext"][name]
+         print(Fore.GREEN + f"Password for '{name}' deleted successfully", end="")
+         loading_animation(Fore.GREEN)
+      else:
+         print(Fore.RED + f"No password found for '{name}'", end="")
+         loading_animation(Fore.RED)
+      
+      want_another = input(Fore.GREEN + "Do you want to delete another password? (y/n): ").strip().lower()
+      if want_another != 'y':
+         print(Fore.YELLOW + "Returning to main menu", end="")
+         loading_animation(Fore.YELLOW)
+         break
+   return decrypted_data
+
+def edit_password(decrypted_data):
+   """Edits an existing password in the storage."""
+   clear_screen()
+   print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- EDIT PASSWORD ---")
+   while True:
+      name = input(Fore.GREEN + "Enter the name of the password to edit (leave empty to exit): ")
+      if name == "main_password":
+         print(Fore.RED + "Cannot edit the main password. Please choose a different name.")
+         continue
+      if not name:
+         print(Fore.YELLOW + "Exiting edit mode", end="")
+         loading_animation(Fore.YELLOW)
+         return decrypted_data
+      if name not in decrypted_data["encrypted_data"]["ciphertext"]:
+         print(Fore.RED + f"No password found for '{name}'.")
+         continue
+
+      
+      new_name = input(Fore.GREEN + "Enter the new name for the password (leave empty to keep current): ")
+      new_password = getpass.getpass(Fore.GREEN + "Enter the new password (leave empty to keep current): ")
+      if new_name:
+         decrypted_data["encrypted_data"]["ciphertext"][new_name] = decrypted_data["encrypted_data"]["ciphertext"].pop(name)
+         name = new_name
+      if new_password:
+         re_enter_password = getpass.getpass(Fore.GREEN + "Re-enter the new password: ")
+         if new_password != re_enter_password:
+            print(Fore.RED + "Passwords do not match. Please try again.")
+            continue
+         decrypted_data["encrypted_data"]["ciphertext"][name] = new_password
+      
+      print(Fore.GREEN + f"Password for '{name}' updated successfully", end="")
+      loading_animation(Fore.GREEN)
+      want_another = input(Fore.GREEN + "Do you want to edit another password? (y/n): ").strip().lower()
+      if want_another != 'y':
+         print(Fore.YELLOW + "Returning to main menu", end="")
+         loading_animation()
+         break
+
+   return decrypted_data
+
 def open_storage():
    """Opens an existing storage file for passwords."""
    print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- OPEN STORAGE ---")
@@ -217,7 +280,7 @@ def generate_storage():
 
 def close_storage(decrypted_data):
    """Closes the storage and saves the passwords."""
-   print(Fore.GREEN + "Closing storage...")
+   print(Fore.YELLOW + "Closing storage...")
    with open(decrypted_data["info"]["storage_name"], 'w') as f:
       encrypted_data = encrypt_data(json.dumps(decrypted_data["encrypted_data"]["ciphertext"]).encode('utf-8'), 
                                      bytes.fromhex(decrypted_data["info"]["salt"]), 
@@ -242,8 +305,27 @@ def print_passwords(decrypted_data):
       return
    for name, password in decrypted_data["encrypted_data"]["ciphertext"].items():
       print(Fore.CYAN + f"{name}: {password}")
-   print(Fore.YELLOW + "End of stored passwords.", end="")
-   input(Fore.GREEN + "\nPress Enter to continue...")
+   print(Fore.YELLOW + "End of stored passwords.")
+   input(Fore.GREEN + "Press Enter to continue...")
+
+def opened_storage(decrypted_data):
+   """Function to handle the opened storage."""
+   while True:
+      option = menu("open")
+      if option == "1":
+         decrypted_data = add_password(decrypted_data)
+      elif option == "2":
+         decrypted_data = delete_password(decrypted_data)
+      elif option == "3":
+         decrypted_data = edit_password(decrypted_data)
+      elif option == "4":
+         print_passwords(decrypted_data)
+      elif option == "5":
+         close_storage(decrypted_data)
+         break
+      else:
+         print(Fore.RED + "Invalid option. Please try again.")
+         continue
 
 def main():
    colorama_init(autoreset=True)
@@ -252,32 +334,10 @@ def main():
       clear_screen()
       if option == "1":
          decrypted_data = generate_storage()
-         while True:
-            option = menu("generate")
-            if option == "1":
-               decrypted_data = add_password(decrypted_data)
-            elif option == "2":
-               print_passwords(decrypted_data)
-            elif option == "3":
-               close_storage(decrypted_data)
-               break
-            else:
-               print(Fore.RED + "Invalid option. Please try again.")
-               continue
+         opened_storage(decrypted_data)
       elif option == "2":
          decrypted_data = open_storage()
-         while True:
-            option = menu("open")
-            if option == "1":
-               decrypted_data = add_password(decrypted_data)
-            elif option == "2":
-               print_passwords(decrypted_data)
-            elif option == "3":
-               close_storage(decrypted_data)
-               break
-            else:
-               print(Fore.RED + "Invalid option. Please try again.")
-               continue
+         opened_storage(decrypted_data)
       elif option == "3":
          print(Fore.GREEN + "Exiting the program. Goodbye!")
          return
