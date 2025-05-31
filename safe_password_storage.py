@@ -8,6 +8,7 @@ from colorama import Fore, Style, Back, init as colorama_init
 import os
 import getpass
 import time
+from pprint import pprint
 
 def loading_animation(color=Fore.YELLOW):
    """Display a loading animation."""
@@ -49,34 +50,34 @@ def decrypt_data(encrypted_data: dict, salt: bytes, key_password: bytes):
    cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
    return cipher.decrypt_and_verify(ciphertext, tag)
 
-def menu(type=None):
+def menu(option=None):
    """Displays different menu options to the user based on the provided type."""
 
    clear_screen()
-   if type == "start":
+   if option == "start":
       print(Fore.RED+ Style.BRIGHT + Back.BLUE + "--- SAFE PASSWORD STORAGE ---")
       print(Fore.CYAN + "1. Generate storage")
       print(Fore.CYAN + "2. Open storage")
       print(Fore.CYAN + "3. Exit")
       print(Fore.GREEN + "Choose an option (1-3): ", end="")
       return input(Fore.GREEN)
-   elif type == "generate":
+   elif option == "generate":
       print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- GENERATE STORAGE ---")
       print(Fore.CYAN + "1. Add password")
       print(Fore.CYAN + "2. View passwords")
       print(Fore.CYAN + "3. Back to main menu")
       print(Fore.GREEN + "Choose an option (1-3): ", end="")
       return input(Fore.GREEN)
-   elif type == "open":
+   elif option == "open":
       print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- OPEN STORAGE ---")
       print(Fore.CYAN + "1. Add password")
       print(Fore.CYAN + "2. View passwords")
       print(Fore.CYAN + "3. Back to main menu")
       print(Fore.GREEN + "Choose an option (1-3): ", end="")
       return input(Fore.GREEN)
-
-
-
+   elif option == "add":
+      print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- ADD PASSWORD ---")
+      return
 
 
 def add_password(decrypted_data):
@@ -93,11 +94,11 @@ def add_password(decrypted_data):
          print(Fore.RED + "Password cannot be empty.")
          continue
          
-      if name in decrypted_data["passwords"]:
+      if name in decrypted_data["encrypted_data"]["ciphertext"]:
          print(Fore.RED + "Password with this name already exists. Please choose a different name.")
          continue
 
-      decrypted_data["passwords"][name] = password
+      decrypted_data["encrypted_data"]["ciphertext"][name] = password
       print(Fore.GREEN + f"Password for '{name}' added successfully.")
       want_another = input(Fore.GREEN + "Do you want to add another password? (y/n): ").strip().lower()
       if want_another != 'y':
@@ -107,6 +108,8 @@ def open_storage():
    """Opens an existing storage file for passwords."""
    print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- OPEN STORAGE ---")
    storage_name = input(Fore.GREEN + "Enter storage name: ")
+
+   # Some validation for storage name, existence check and password
    if not storage_name:
       print(Fore.RED + "Storage name cannot be empty", end="")
       loading_animation(Fore.RED)
@@ -122,17 +125,28 @@ def open_storage():
       loading_animation(Fore.RED)
       return
    
+   # Attempt to read and decrypt the storage file
    try:
       with open(storage_name, 'r') as f:
          storage_data = json.load(f)
       salt = bytes.fromhex(storage_data["info"]["salt"])
       encrypted_data = storage_data["encrypted_data"]
       decrypted_data = decrypt_data(encrypted_data, salt, storage_password.encode('utf-8'))
-      main_password = json.loads(decrypted_data.decode('utf-8'))
-      if main_password["main_password"] != storage_password:
+      decrypted_data = decrypted_data.decode('utf-8')
+      passwords = json.loads(decrypted_data)
+      decrypted_data = {
+         "nonce": encrypted_data["nonce"],
+         "tag": encrypted_data["tag"],
+         "ciphertext": passwords
+      }
+      if passwords["main_password"] != storage_password:
          print(Fore.RED + "Incorrect password. Please try again", end="")
          loading_animation(Fore.RED)
          return
+      decrypted_storage = {
+         "info": storage_data["info"],
+         "encrypted_data": decrypted_data,
+      }
    except Exception as e:
       print(Fore.RED + f"Error reading storage file: {e}", end="")
       loading_animation(Fore.RED)
@@ -140,6 +154,7 @@ def open_storage():
    print(Fore.GREEN + f"Storage '{storage_name}' opened successfully")
    print(Fore.YELLOW + "You can now add or view passwords", end="")
    loading_animation()
+   return decrypted_storage
 
 def generate_storage():
    """Generates a secure storage file for passwords."""
@@ -172,13 +187,18 @@ def generate_storage():
    }
    main_password_encoded = json.dumps(main_password).encode('utf-8')
    data = encrypt_data(main_password_encoded, salt, key_password.encode('utf-8'))
+   decrypted_data = {
+      "nonce": data["nonce"],
+      "tag": data["tag"],
+      "ciphertext": main_password
+   }
    new_storage = {
       "info": {
          "storage_name": storage_name,
          "version": "1.0",
          "salt": salt.hex(),
       },
-      "passwords": data
+      "encrypted_data": data
    }
    decrypted_storage = {
       "info": {
@@ -186,7 +206,7 @@ def generate_storage():
          "version": "1.0",
          "salt": salt.hex(),
       },
-      "passwords": main_password
+      "encrypted_data": decrypted_data
    }
    with open(storage_name, 'w') as f:
       json.dump(new_storage, f, indent=4)
@@ -199,9 +219,9 @@ def close_storage(decrypted_data):
    """Closes the storage and saves the passwords."""
    print(Fore.GREEN + "Closing storage...")
    with open(decrypted_data["info"]["storage_name"], 'w') as f:
-      encrypted_data = encrypt_data(json.dumps(decrypted_data["passwords"]).encode('utf-8'), 
+      encrypted_data = encrypt_data(json.dumps(decrypted_data["encrypted_data"]["ciphertext"]).encode('utf-8'), 
                                      bytes.fromhex(decrypted_data["info"]["salt"]), 
-                                     decrypted_data["passwords"]["main_password"].encode('utf-8'))
+                                     decrypted_data["encrypted_data"]["ciphertext"]["main_password"].encode('utf-8'))
       storage_data = {
          "info": decrypted_data["info"],
          "encrypted_data": encrypted_data
@@ -216,11 +236,11 @@ def print_passwords(decrypted_data):
    """Prints the stored passwords."""
    clear_screen()
    print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- STORED PASSWORDS ---")
-   if not decrypted_data["passwords"]:
+   if not decrypted_data["encrypted_data"]["ciphertext"]:
       print(Fore.YELLOW + "No passwords stored yet.")
       loading_animation()
       return
-   for name, password in decrypted_data["passwords"].items():
+   for name, password in decrypted_data["encrypted_data"]["ciphertext"].items():
       print(Fore.CYAN + f"{name}: {password}")
    print(Fore.YELLOW + "End of stored passwords.", end="")
    input(Fore.GREEN + "\nPress Enter to continue...")
@@ -245,7 +265,19 @@ def main():
                print(Fore.RED + "Invalid option. Please try again.")
                continue
       elif option == "2":
-         open_storage()
+         decrypted_data = open_storage()
+         while True:
+            option = menu("open")
+            if option == "1":
+               decrypted_data = add_password(decrypted_data)
+            elif option == "2":
+               print_passwords(decrypted_data)
+            elif option == "3":
+               close_storage(decrypted_data)
+               break
+            else:
+               print(Fore.RED + "Invalid option. Please try again.")
+               continue
       elif option == "3":
          print(Fore.GREEN + "Exiting the program. Goodbye!")
          return
