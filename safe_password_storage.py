@@ -11,7 +11,7 @@ import time
 from pprint import pprint
 
 def loading_animation(color=Fore.YELLOW):
-   """Display a loading animation."""
+   # Display a loading animation
    for _ in range(3):
       time.sleep(0.6)
       print(color + '.', end='')
@@ -19,19 +19,19 @@ def loading_animation(color=Fore.YELLOW):
    time.sleep(1)
 
 def clear_screen():
-   """Clear the console screen."""
+   # Clear the console screen
    os.system('cls' if os.name == 'nt' else 'clear')
 
 def generate_salt():
-   """Generate a secure random salt."""
+   # Generate a secure random salt
    return get_random_bytes(16)
 
 def generate_key(password: bytes, salt):
-   """Generate a secure key from the password and salt."""
+   # Generate a secure key from the password and salt
    return PBKDF2(password, salt, dkLen=32, count=200_000, hmac_hash_module=SHA256)
 
 def encrypt_data(data: bytes, salt: bytes, key_password: bytes):
-   """Generate a secure data."""
+   # Generate a secure data
    nonce = get_random_bytes(12)
    key = generate_key(key_password, salt)
    cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
@@ -43,7 +43,7 @@ def encrypt_data(data: bytes, salt: bytes, key_password: bytes):
    }
 
 def decrypt_data(encrypted_data: dict, salt: bytes, key_password: bytes):
-   """Decrypt the encrypted data using the provided salt and password."""
+   # Decrypt the encrypted data using the provided salt and password
    nonce = bytes.fromhex(encrypted_data["nonce"])
    tag = bytes.fromhex(encrypted_data["tag"])
    ciphertext = bytes.fromhex(encrypted_data["ciphertext"])
@@ -52,7 +52,7 @@ def decrypt_data(encrypted_data: dict, salt: bytes, key_password: bytes):
    return cipher.decrypt_and_verify(ciphertext, tag)
 
 def menu(option=None):
-   """Displays different menu options to the user based on the provided type."""
+   # Displays different menu options to the user based on the provided type
 
    clear_screen()
    if option == "start":
@@ -77,7 +77,7 @@ def menu(option=None):
 
 
 def add_password(decrypted_data):
-   """Adds a new password to the storage."""
+   # Adds a new password to the storage
    menu("add")
    while True:
       name = input(Fore.GREEN + "Enter the name of the password: ")
@@ -104,7 +104,7 @@ def add_password(decrypted_data):
          return decrypted_data
 
 def delete_password(decrypted_data):
-   """Deletes a password from the storage."""
+   # Deletes a password from the storage
    while True:
       clear_screen()
       print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- CURRENT PASSWORDS ---")
@@ -131,7 +131,7 @@ def delete_password(decrypted_data):
    return decrypted_data
 
 def edit_password(decrypted_data):
-   """Edits an existing password in the storage."""
+   # Edits an existing password in the storage
    while True:
       clear_screen()
       print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- CURRENT PASSWORDS ---")
@@ -174,7 +174,7 @@ def edit_password(decrypted_data):
    return decrypted_data
 
 def open_storage():
-   """Opens an existing storage file for passwords."""
+   # Opens an existing storage file for passwords
    print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- OPEN STORAGE ---")
    storage_name = input(Fore.GREEN + "Enter storage name: ")
 
@@ -232,7 +232,7 @@ def open_storage():
    return decrypted_storage
 
 def generate_storage():
-   """Generates a secure storage file for passwords."""
+   # Generates a secure storage file for passwords
    while True:
       clear_screen()
       print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- GENERATE STORAGE ---")
@@ -293,7 +293,7 @@ def generate_storage():
       return decrypted_storage
 
 def close_storage(decrypted_data):
-   """Closes the storage and saves the passwords."""
+   # Closes the storage and saves the passwords
    print(Fore.YELLOW + "Closing storage...")
    with open(decrypted_data["info"]["storage_name"], 'w') as f:
       encrypted_data = encrypt_data(json.dumps(decrypted_data["encrypted_data"]["ciphertext"]).encode('utf-8'), 
@@ -310,7 +310,7 @@ def close_storage(decrypted_data):
    clear_screen()
 
 def print_passwords(decrypted_data):
-   """Prints the stored passwords."""
+   # Prints the stored passwords
    clear_screen()
    print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- STORED PASSWORDS ---")
    if not decrypted_data["encrypted_data"]["ciphertext"]:
@@ -323,7 +323,7 @@ def print_passwords(decrypted_data):
    input(Fore.GREEN + "Press Enter to continue...")
 
 def opened_storage(decrypted_data):
-   """Function to handle the opened storage."""
+   # Function to handle the opened storage
    while True:
       option = menu("open")
       if option == "1":
