@@ -68,8 +68,9 @@ def menu(option=None):
       print(Fore.CYAN + "2. Delete password")
       print(Fore.CYAN + "3. Edit password")
       print(Fore.CYAN + "4. View passwords")
-      print(Fore.CYAN + "5. Back to main menu")
-      print(Fore.GREEN + "Choose an option (1-5): ", end="")
+      print(Fore.CYAN + "5. Edit storage password")
+      print(Fore.CYAN + "6. Close storage")
+      print(Fore.GREEN + "Choose an option (1-6): ", end="")
       return input(Fore.GREEN)
    elif option == "add":
       print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- ADD PASSWORD ---")
@@ -322,6 +323,29 @@ def print_passwords(decrypted_data):
    print(Fore.YELLOW + "End of stored passwords.")
    input(Fore.GREEN + "Press Enter to continue...")
 
+def change_storage_password(decrypted_data):
+   # Changes the password for the storage
+   while True:
+      clear_screen()
+      print(Fore.RED + Style.BRIGHT + Back.BLUE + "--- CHANGE STORAGE PASSWORD ---")
+      new_password = getpass.getpass(Fore.YELLOW + "Enter the new password for the storage (leave empty to exit): ")
+      if not new_password:
+         print(Fore.YELLOW + "Exiting", end="")
+         loading_animation()
+         return
+      re_enter_password = getpass.getpass(Fore.YELLOW + "Re-enter the new password: ")
+      if new_password != re_enter_password:
+         print(Fore.RED + "Passwords do not match. Please try again", end="")
+         loading_animation(Fore.RED)
+         continue
+      
+      decrypted_data["encrypted_data"]["ciphertext"]["main_password"] = new_password
+      break
+
+   print(Fore.GREEN + "Password changed successful.", end="")
+   loading_animation(Fore.GREEN)
+   return decrypted_data
+
 def opened_storage(decrypted_data):
    # Function to handle the opened storage
    while True:
@@ -335,6 +359,8 @@ def opened_storage(decrypted_data):
       elif option == "4":
          print_passwords(decrypted_data)
       elif option == "5":
+         decrypted_data = change_storage_password(decrypted_data)
+      elif option == "6":
          close_storage(decrypted_data)
          break
       else:
